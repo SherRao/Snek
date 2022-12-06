@@ -22,16 +22,19 @@ void onResize(GLint width, GLint height);
 void onMouseAction(GLint button, GLint action, GLint xMouse, GLint yMouse);
 void onMouseMove(GLint xMouse, GLint yMouse);
 void onKeyPress(unsigned char key, GLint xMouse, GLint yMouse);
+void checkCollisions(void);
 void drawSnake(void);
 void drawApples(void);
 void drawBombs(void);
+void generateApples(void);
+void generateBombs(void);
 void logConsole(char *functionName, char *message);
 
 // Constants
 const char *TITLE = "Snek - Version 1.0";
 const int FPS = 1000 / 60;
-const int APPLE_SIZE = 100;
-const int BOMB_SIZE = 100;
+const int APPLE_SIZE = 25;
+const int BOMB_SIZE = 50;
 
 // Variables
 int width = 1280;
@@ -39,11 +42,12 @@ int height = 720;
 bool running = true;
 
 Player player;
-Bomb bombs[100];
-Apple apples[100];
-int score;
-int bombCount;
-int appleCount;
+Bomb bombs[10000];
+Apple apples[10000];
+int score = 0;
+int level = 1;
+int bombCount = 0;
+int appleCount = 0;
 
 /**
  * @brief Called 60 times per second - used to update the game state.
@@ -52,9 +56,25 @@ int appleCount;
  */
 void update(int value)
 {
+    printf("aC, bC: %d, %d\n", appleCount, bombCount);
+
     // Update the player's position.
     player.x += player.xVelocity;
     player.y += player.yVelocity;
+    if (player.health <= 0)
+    {
+        running = false;
+    }
+
+    // Check if apples are all eaten.
+    if (appleCount <= 0)
+    {
+        level++;
+        generateApples();
+        generateBombs();
+    }
+
+    checkCollisions();
 
     glutPostRedisplay();
     glutTimerFunc(FPS, update, 0);
@@ -70,6 +90,8 @@ void render()
     glLoadIdentity();
 
     drawSnake();
+    drawApples();
+    drawBombs();
     glFlush();
 }
 
@@ -156,6 +178,43 @@ void onSpecialKeyPress(int key, int a, int b)
 }
 
 /**
+ * @brief Checks for collisions between the player and apples/bombs.
+ */
+void checkCollisions()
+{
+    for (int i = 0; i < appleCount; i++)
+    {
+        if (player.x + player.size >= apples[i].x && player.x <= apples[i].x + APPLE_SIZE)
+        {
+            if (player.y + player.size >= apples[i].y && player.y <= apples[i].y + APPLE_SIZE)
+            {
+                score++;
+                appleCount--;
+                player.size += 10;
+            }
+        }
+    }
+
+    for (int i = 0; i < bombCount; i++)
+    {
+        if (player.x + player.size >= bombs[i].x && player.x <= bombs[i].x + BOMB_SIZE)
+        {
+            if (player.y + player.size >= bombs[i].y && player.y <= bombs[i].y + BOMB_SIZE)
+            {
+                player.health--;
+                bombCount--;
+                player.size -= 10;
+            }
+        }
+    }
+
+    if (player.x > width || player.x < 0 || player.y > height || player.y < 0)
+    {
+        player.health--;
+    }
+}
+
+/**
  * @brief Draws the snake to the screen.
  */
 void drawSnake()
@@ -176,6 +235,7 @@ void drawApples()
 {
     for (int i = 0; i < appleCount; i++)
     {
+        glColor3d(1.0, 1.0, 0.0);
         glColor3f(apples[i].color[0], apples[i].color[1], apples[i].color[2]);
         glBegin(GL_POLYGON);
         glVertex2f(apples[i].x, apples[i].y);
@@ -191,6 +251,7 @@ void drawApples()
  */
 void drawBombs()
 {
+    glColor3d(.5, .5, 0.0);
     for (int i = 0; i < bombCount; i++)
     {
         glColor3f(bombs[i].color[0], bombs[i].color[1], bombs[i].color[2]);
@@ -203,27 +264,29 @@ void drawBombs()
     }
 }
 
+/**
+ * @brief x
+ */
 void generateApples()
 {
+    appleCount = level * 2;
     for (int i = 0; i < appleCount; i++)
     {
-        apples[i].x = rand() % width;
-        apples[i].y = rand() % height;
-        apples[i].color[0] = 0f;
-        apples[i].color[1] = 1f;
-        apples[i].color[2] = 1f;
+        apples[i].x = rand() % (width - 50);
+        apples[i].y = rand() % (height - 50);
     }
 }
 
+/**
+ * @brief x
+ */
 void generateBombs()
 {
+    bombCount = pow(2, level);
     for (int i = 0; i < bombCount; i++)
     {
-        bombs[i].x = rand() % width;
-        bombs[i].y = rand() % height;
-        bombs[i].color[0] = 0f;
-        bombs[i].color[1] = 0f;
-        bombs[i].color[2] = 1f;
+        bombs[i].x = rand() % (width - 50);
+        bombs[i].y = rand() % (height - 50);
     }
 }
 
