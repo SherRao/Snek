@@ -4,8 +4,10 @@ typedef struct player
     int y;
     int xVelocity;
     int yVelocity;
+    int speed;
 
     int size;
     int health;
     int color[3];
+
 } Player;

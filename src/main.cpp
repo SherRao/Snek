@@ -30,6 +30,8 @@ void logConsole(char *functionName, char *message);
 // Constants
 const char *TITLE = "Snek - Version 1.0";
 const int FPS = 1000 / 60;
+const int APPLE_SIZE = 100;
+const int BOMB_SIZE = 100;
 
 // Variables
 int width = 1280;
@@ -43,6 +45,11 @@ int score;
 int bombCount;
 int appleCount;
 
+/**
+ * @brief Called 60 times per second - used to update the game state.
+ *
+ * @param value The value passed to the timer function.
+ */
 void update(int value)
 {
     // Update the player's position.
@@ -53,6 +60,9 @@ void update(int value)
     glutTimerFunc(FPS, update, 0);
 }
 
+/**
+ * @brief Called 60 times per second - used to draw the game.
+ */
 void render()
 {
     glClear(GL_COLOR_BUFFER_BIT);
@@ -115,26 +125,29 @@ void onKeyPress(unsigned char key, GLint x, GLint y)
 
     if (key == 'w' || key == GLUT_KEY_UP)
     {
-        player.yVelocity = 1;
+        player.yVelocity = -player.speed;
         player.xVelocity = 0;
     }
     if (key == 's' || key == GLUT_KEY_DOWN)
     {
-        player.yVelocity = -1;
+        player.yVelocity = player.speed;
         player.xVelocity = 0;
     }
     if (key == 'a' || key == GLUT_KEY_LEFT)
     {
-        player.xVelocity = -1;
+        player.xVelocity = -player.speed;
         player.yVelocity = 0;
     }
     if (key == 'd' || key == GLUT_KEY_RIGHT)
     {
-        player.xVelocity = 1;
+        player.xVelocity = player.speed;
         player.yVelocity = 0;
     }
 }
 
+/**
+ * @brief Called by OpenGL when a special keyboard key is pressed.
+ */
 void onSpecialKeyPress(int key, int a, int b)
 {
     char logMessage[200];
@@ -142,6 +155,9 @@ void onSpecialKeyPress(int key, int a, int b)
     logConsole("onSpecialKeyPress", logMessage);
 }
 
+/**
+ * @brief Draws the snake to the screen.
+ */
 void drawSnake()
 {
     glColor3f(player.color[0], player.color[1], player.color[2]);
@@ -153,15 +169,78 @@ void drawSnake()
     glEnd();
 }
 
-void drawApples() {}
+/**
+ * @brief Draws the apples to the screen.
+ */
+void drawApples()
+{
+    for (int i = 0; i < appleCount; i++)
+    {
+        glColor3f(apples[i].color[0], apples[i].color[1], apples[i].color[2]);
+        glBegin(GL_POLYGON);
+        glVertex2f(apples[i].x, apples[i].y);
+        glVertex2f(apples[i].x + APPLE_SIZE, apples[i].y);
+        glVertex2f(apples[i].x + APPLE_SIZE, apples[i].y + APPLE_SIZE);
+        glVertex2f(apples[i].x, apples[i].y + APPLE_SIZE);
+        glEnd();
+    }
+}
 
-void drawBombs() {}
+/**
+ * @brief Draws the bombs to the screen.
+ */
+void drawBombs()
+{
+    for (int i = 0; i < bombCount; i++)
+    {
+        glColor3f(bombs[i].color[0], bombs[i].color[1], bombs[i].color[2]);
+        glBegin(GL_POLYGON);
+        glVertex2f(bombs[i].x, bombs[i].y);
+        glVertex2f(bombs[i].x + BOMB_SIZE, bombs[i].y);
+        glVertex2f(bombs[i].x + BOMB_SIZE, bombs[i].y + BOMB_SIZE);
+        glVertex2f(bombs[i].x, bombs[i].y + BOMB_SIZE);
+        glEnd();
+    }
+}
 
+void generateApples()
+{
+    for (int i = 0; i < appleCount; i++)
+    {
+        apples[i].x = rand() % width;
+        apples[i].y = rand() % height;
+        apples[i].color[0] = 0f;
+        apples[i].color[1] = 1f;
+        apples[i].color[2] = 1f;
+    }
+}
+
+void generateBombs()
+{
+    for (int i = 0; i < bombCount; i++)
+    {
+        bombs[i].x = rand() % width;
+        bombs[i].y = rand() % height;
+        bombs[i].color[0] = 0f;
+        bombs[i].color[1] = 0f;
+        bombs[i].color[2] = 1f;
+    }
+}
+
+/**
+ * @brief Logs a message to the console.
+ *
+ * @param functionName The name of the function that called this function.
+ * @param message The message to log.
+ */
 void logConsole(char *functionName, char *message)
 {
     printf("[%s]: %s\n", functionName, message);
 }
 
+/**
+ * @brief Initializes the game.
+ */
 void init(int argc, char *argv[])
 {
     logConsole("init", "Initializing...");
@@ -169,11 +248,13 @@ void init(int argc, char *argv[])
     setvbuf(stdout, NULL, _IONBF, 0);
     setvbuf(stderr, NULL, _IONBF, 0);
 
-    player.x = 100; // rand() % WIDTH;
-    player.y = 100; // rand() % HEIGHT;
-    player.xVelocity = 5;
+    generateBombs();
+    generateApples();
+    player.x = rand() % width;
+    player.y = rand() % height;
+    player.xVelocity = player.speed = 10;
     player.yVelocity = 0;
-    player.size = 10;
+    player.size = 50;
     player.health = 3;
     player.color[0] = 0.0;
     player.color[1] = 1.0;
@@ -199,6 +280,9 @@ void init(int argc, char *argv[])
     glutMainLoop();
 }
 
+/**
+ * @brief The main function.
+ */
 int main(int argc, char *argv[])
 {
     init(argc, argv);
