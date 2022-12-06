@@ -26,8 +26,10 @@ void checkCollisions(void);
 void drawSnake(void);
 void drawApples(void);
 void drawBombs(void);
+void drawData(void);
 void generateApples(void);
 void generateBombs(void);
+void endGame(void);
 void logConsole(char *functionName, char *message);
 
 // Constants
@@ -40,6 +42,7 @@ const int BOMB_SIZE = 50;
 int width = 1280;
 int height = 720;
 bool running = true;
+int gameState = 0; // 0 = MENU, 1 = GAME, 2 = PAUSE, 3 = GAME OVER
 
 Player player;
 Bomb bombs[10000];
@@ -56,25 +59,29 @@ int appleCount = 0;
  */
 void update(int value)
 {
-    printf("aC, bC: %d, %d\n", appleCount, bombCount);
-
-    // Update the player's position.
-    player.x += player.xVelocity;
-    player.y += player.yVelocity;
-    if (player.health <= 0)
+    if (gameState == 0)
     {
-        running = false;
     }
-
-    // Check if apples are all eaten.
-    if (appleCount <= 0)
+    else if (gameState == 1)
     {
-        level++;
-        generateApples();
-        generateBombs();
-    }
+        // Update the player's position.
+        player.x += player.xVelocity;
+        player.y += player.yVelocity;
+        if (player.size <= 0)
+        {
+            gameState = 3;
+        }
 
-    checkCollisions();
+        // Check if apples are all eaten.
+        if (appleCount <= 0)
+        {
+            level++;
+            generateApples();
+            generateBombs();
+        }
+
+        checkCollisions();
+    }
 
     glutPostRedisplay();
     glutTimerFunc(FPS, update, 0);
@@ -89,9 +96,51 @@ void render()
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
-    drawSnake();
-    drawApples();
-    drawBombs();
+    if (gameState == 0)
+    {
+        glColor3f(0.0, 0.0, 0.0);
+        glBegin(GL_QUADS);
+        glVertex2f(width / 2 - 200, height / 2 - 50);
+        glVertex2f(width / 2 + 200, height / 2 - 50);
+        glVertex2f(width / 2 + 200, height / 2 + 50);
+        glVertex2f(width / 2 - 200, height / 2 + 50);
+        glVertex2f(width / 2 - 200, height / 2 + 150 - 50);
+        glVertex2f(width / 2 + 200, height / 2 + 150 - 50);
+        glVertex2f(width / 2 + 200, height / 2 + 150 + 50);
+        glVertex2f(width / 2 - 200, height / 2 + 150 + 50);
+        glEnd();
+
+        // Write the word "Play" inside the first rectangle
+        glColor3f(1.0, 1.0, 1.0);
+        glRasterPos2f(width / 2 - 50, height / 2 - 20);
+        char *string = "Play";
+        for (int i = 0; i < strlen(string); i++)
+            glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, string[i]);
+
+        // Write the word "Quit" inside the second rectangle
+        glColor3f(1.0, 1.0, 1.0);
+        glRasterPos2f(width / 2 - 50, height / 2 + 150 - 20);
+        string = "Quit";
+        for (int i = 0; i < strlen(string); i++)
+            glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, string[i]);
+    }
+    else if (gameState == 1)
+    {
+        drawSnake();
+        drawApples();
+        drawBombs();
+        drawData();
+    }
+    else if (gameState == 3)
+    {
+        // draw game over in the center of the screen
+        glColor3f(1.0, 0.0, 0.0);
+        glRasterPos2f(width / 2 - 100, height / 2);
+        char *string = "Game Over";
+        for (int i = 0; i < strlen(string); i++)
+            glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, string[i]);
+    }
+
     glFlush();
 }
 
@@ -118,6 +167,21 @@ void onMouseAction(GLint button, GLint action, GLint xMouse, GLint yMouse)
     char logMessage[200];
     sprintf(logMessage, "Mouse action occured at (%d, %d)", xMouse, yMouse);
     logConsole("onMouseAction", logMessage);
+
+    if (gameState == 0)
+    {
+        if (button == GLUT_LEFT_BUTTON && action == GLUT_DOWN)
+        {
+            if (xMouse >= width / 2 - 200 && xMouse <= width / 2 + 200 && yMouse >= height / 2 - 50 && yMouse <= height / 2 + 50)
+            {
+                gameState = 1;
+            }
+            else if (xMouse >= width / 2 - 200 && xMouse <= width / 2 + 200 && yMouse >= height / 2 + 150 - 50 && yMouse <= height / 2 + 150 + 50)
+            {
+                exit(0);
+            }
+        }
+    }
 }
 
 /**
@@ -145,25 +209,31 @@ void onKeyPress(unsigned char key, GLint x, GLint y)
         exit(0);
     }
 
-    if (key == 'w' || key == GLUT_KEY_UP)
+    if (gameState == 0)
     {
-        player.yVelocity = -player.speed;
-        player.xVelocity = 0;
     }
-    if (key == 's' || key == GLUT_KEY_DOWN)
+    else
     {
-        player.yVelocity = player.speed;
-        player.xVelocity = 0;
-    }
-    if (key == 'a' || key == GLUT_KEY_LEFT)
-    {
-        player.xVelocity = -player.speed;
-        player.yVelocity = 0;
-    }
-    if (key == 'd' || key == GLUT_KEY_RIGHT)
-    {
-        player.xVelocity = player.speed;
-        player.yVelocity = 0;
+        if (key == 'w' || key == GLUT_KEY_UP)
+        {
+            player.yVelocity = -player.speed;
+            player.xVelocity = 0;
+        }
+        if (key == 's' || key == GLUT_KEY_DOWN)
+        {
+            player.yVelocity = player.speed;
+            player.xVelocity = 0;
+        }
+        if (key == 'a' || key == GLUT_KEY_LEFT)
+        {
+            player.xVelocity = -player.speed;
+            player.yVelocity = 0;
+        }
+        if (key == 'd' || key == GLUT_KEY_RIGHT)
+        {
+            player.xVelocity = player.speed;
+            player.yVelocity = 0;
+        }
     }
 }
 
@@ -178,19 +248,22 @@ void onSpecialKeyPress(int key, int a, int b)
 }
 
 /**
- * @brief Checks for collisions between the player and apples/bombs.
+ * @brief Checks for collisions between the player, environment, and apples/bombs.
  */
 void checkCollisions()
 {
     for (int i = 0; i < appleCount; i++)
     {
+
         if (player.x + player.size >= apples[i].x && player.x <= apples[i].x + APPLE_SIZE)
         {
             if (player.y + player.size >= apples[i].y && player.y <= apples[i].y + APPLE_SIZE)
             {
+                logConsole("checkCollisions", "Player hit apple!");
                 score++;
                 appleCount--;
                 player.size += 10;
+                break;
             }
         }
     }
@@ -201,17 +274,26 @@ void checkCollisions()
         {
             if (player.y + player.size >= bombs[i].y && player.y <= bombs[i].y + BOMB_SIZE)
             {
+                logConsole("checkCollisions", "Player hit bomb!");
                 player.health--;
                 bombCount--;
                 player.size -= 10;
+                break;
             }
         }
     }
 
-    if (player.x > width || player.x < 0 || player.y > height || player.y < 0)
-    {
-        player.health--;
-    }
+    if (player.x > width)
+        player.x = 0;
+
+    if (player.x < 0)
+        player.x = width;
+
+    if (player.y > height)
+        player.y = 0;
+
+    if (player.y < 0)
+        player.y = height;
 }
 
 /**
@@ -265,15 +347,53 @@ void drawBombs()
 }
 
 /**
- * @brief x
+ * @brief Draws the score to the screen in Times New Roman size 24.
+ */
+void drawData()
+{
+    glColor3f(0.0f, 0.0f, 1.0f);
+    glRasterPos2f(10, 30);
+    char scoreString[25];
+    sprintf(scoreString, "Score: %d (Level %d)", score, level);
+    for (int i = 0; i < strlen(scoreString); i++)
+        glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, scoreString[i]);
+
+    glColor3f(0.0f, 1.0f, 0.0f);
+    glRasterPos2f(10, 60);
+    char healthString[12];
+    sprintf(healthString, "Health: %d", player.size);
+    for (int i = 0; i < strlen(healthString); i++)
+        glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, healthString[i]);
+}
+
+/**
+ * @brief
  */
 void generateApples()
 {
     appleCount = level * 2;
-    for (int i = 0; i < appleCount; i++)
+    // for (int i = 0; i < appleCount; i++)
+    // {
+    //     apples[i].x = rand() % (width - 50);
+    //     apples[i].y = rand() % (height - 50);
+    // }
+
+    // generate apples only in the area of the sceeen the player isnt in
+    if (player.x > width / 2)
     {
-        apples[i].x = rand() % (width - 50);
-        apples[i].y = rand() % (height - 50);
+        for (int i = 0; i < appleCount; i++)
+        {
+            apples[i].x = rand() % (width / 2);
+            apples[i].y = rand() % (height - 50);
+        }
+    }
+    else
+    {
+        for (int i = 0; i < appleCount; i++)
+        {
+            apples[i].x = rand() % (width / 2) + (width / 2);
+            apples[i].y = rand() % (height - 50);
+        }
     }
 }
 
@@ -283,11 +403,40 @@ void generateApples()
 void generateBombs()
 {
     bombCount = pow(2, level);
-    for (int i = 0; i < bombCount; i++)
+    // for (int i = 0; i < bombCount; i++)
+    // {
+    //     bombs[i].x = rand() % (width - 50);
+    //     bombs[i].y = rand() % (height - 50);
+    // }
+
+    // generate bombs only in the area of the sceeen the player isnt in
+    if (player.x > width / 2)
     {
-        bombs[i].x = rand() % (width - 50);
-        bombs[i].y = rand() % (height - 50);
+        for (int i = 0; i < bombCount; i++)
+        {
+            bombs[i].x = rand() % (width / 2);
+            bombs[i].y = rand() % (height - 50);
+        }
     }
+    else
+    {
+        for (int i = 0; i < bombCount; i++)
+        {
+            bombs[i].x = rand() % (width / 2) + (width / 2);
+            bombs[i].y = rand() % (height - 50);
+        }
+    }
+}
+
+/**
+ * @brief x
+ */
+void endGame()
+{
+    char logMessage[200];
+    sprintf(logMessage, "Game over! Score: %d", score);
+    logConsole("endGame", logMessage);
+    exit(0);
 }
 
 /**
@@ -313,8 +462,8 @@ void init(int argc, char *argv[])
 
     generateBombs();
     generateApples();
-    player.x = rand() % width;
-    player.y = rand() % height;
+    player.x = width / 2;
+    player.y = height / 2;
     player.xVelocity = player.speed = 10;
     player.yVelocity = 0;
     player.size = 50;
