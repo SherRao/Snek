@@ -4,8 +4,6 @@
 #include <unistd.h>
 #include <math.h>
 #include <time.h>
-#include <sys/types.h>
-#include <sys/wait.h>
 
 #include <OpenGL/gl.h>
 #include <OpenGL/glu.h>
@@ -14,6 +12,14 @@
 #include "player.c"
 #include "apple.c"
 #include "bomb.c"
+
+enum GameState
+{
+    MENU,
+    GAME,
+    PAUSE,
+    GAME_OVER
+};
 
 // Function prototypes
 void init(void);
@@ -42,7 +48,7 @@ const int BOMB_SIZE = 50;
 int width = 1280;
 int height = 720;
 bool running = true;
-int gameState = 0; // 0 = MENU, 1 = GAME, 2 = PAUSE, 3 = GAME OVER
+GameState state = MENU; // 0 = MENU, 1 = GAME, 2 = PAUSE, 3 = GAME OVER
 
 Player player;
 Bomb bombs[10000];
@@ -59,17 +65,17 @@ int appleCount = 0;
  */
 void update(int value)
 {
-    if (gameState == 0)
+    if (state == MENU)
     {
     }
-    else if (gameState == 1)
+    else if (state == GAME)
     {
         // Update the player's position.
         player.x += player.xVelocity;
         player.y += player.yVelocity;
         if (player.size <= 0)
         {
-            gameState = 3;
+            state = GAME_OVER;
         }
 
         // Check if apples are all eaten.
@@ -96,7 +102,7 @@ void render()
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
-    if (gameState == 0)
+    if (state == MENU)
     {
         glColor3f(0.0, 0.0, 0.0);
         glBegin(GL_QUADS);
@@ -124,14 +130,14 @@ void render()
         for (int i = 0; i < strlen(string); i++)
             glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, string[i]);
     }
-    else if (gameState == 1)
+    else if (state == GAME)
     {
         drawSnake();
         drawApples();
         drawBombs();
         drawData();
     }
-    else if (gameState == 3)
+    else if (state == GAME_OVER)
     {
         // draw game over in the center of the screen
         glColor3f(1.0, 0.0, 0.0);
@@ -168,13 +174,13 @@ void onMouseAction(GLint button, GLint action, GLint xMouse, GLint yMouse)
     sprintf(logMessage, "Mouse action occured at (%d, %d)", xMouse, yMouse);
     logConsole("onMouseAction", logMessage);
 
-    if (gameState == 0)
+    if (state == MENU)
     {
         if (button == GLUT_LEFT_BUTTON && action == GLUT_DOWN)
         {
             if (xMouse >= width / 2 - 200 && xMouse <= width / 2 + 200 && yMouse >= height / 2 - 50 && yMouse <= height / 2 + 50)
             {
-                gameState = 1;
+                state = GAME;
             }
             else if (xMouse >= width / 2 - 200 && xMouse <= width / 2 + 200 && yMouse >= height / 2 + 150 - 50 && yMouse <= height / 2 + 150 + 50)
             {
@@ -448,6 +454,24 @@ void endGame()
 void logConsole(char *functionName, char *message)
 {
     printf("[%s]: %s\n", functionName, message);
+}
+
+/**
+ * @brief Draws a given string of text to the screen.
+ *
+ * @param text The text to draw.
+ * @param x The x position of the text.
+ * @param y The y position of the text.
+ * @param r The red value of the text.
+ * @param g The green value of the text.
+ * @param b The blue value of the text.
+ */
+void drawText(char *text, int x, int y, float r, float g, float b)
+{
+    glColor3f(r, g, b);
+    glRasterPos2f(x, y);
+    for (int i = 0; i < strlen(text); i++)
+        glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, text[i]);
 }
 
 /**
