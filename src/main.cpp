@@ -9,9 +9,12 @@
 #include <OpenGL/glu.h>
 #include <GLUT/glut.h>
 
+#include "util.c"
 #include "player.c"
 #include "apple.c"
 #include "bomb.c"
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 
 enum GameState
 {
@@ -23,11 +26,13 @@ enum GameState
 
 // Function prototypes
 void init(void);
+void update(int);
 void render(void);
 void onResize(GLint width, GLint height);
 void onMouseAction(GLint button, GLint action, GLint xMouse, GLint yMouse);
 void onMouseMove(GLint xMouse, GLint yMouse);
 void onKeyPress(unsigned char key, GLint xMouse, GLint yMouse);
+void onSpecialKeyPress(int key, int a, int b);
 void checkCollisions(void);
 void drawSnake(void);
 void drawApples(void);
@@ -36,7 +41,6 @@ void drawData(void);
 void generateApples(void);
 void generateBombs(void);
 void endGame(void);
-void logConsole(char *functionName, char *message);
 
 // Constants
 const char *TITLE = "Snek - Version 1.0";
@@ -45,9 +49,8 @@ const int APPLE_SIZE = 25;
 const int BOMB_SIZE = 50;
 
 // Variables
-int width = 1280;
-int height = 720;
-bool running = true;
+int viewportWidth = 1280;
+int viewportHeight = 720;
 GameState state = MENU; // 0 = MENU, 1 = GAME, 2 = PAUSE, 3 = GAME OVER
 
 Player player;
@@ -57,6 +60,51 @@ int score = 0;
 int level = 1;
 int bombCount = 0;
 int appleCount = 0;
+
+/**
+ * @brief Initializes the game.
+ */
+void init(int argc, char *argv[])
+{
+    logConsole("init", "Initializing...");
+    srand(time(NULL));
+    setvbuf(stdout, NULL, _IONBF, 0);
+    setvbuf(stderr, NULL, _IONBF, 0);
+
+    generateBombs();
+    generateApples();
+    player.x = viewportWidth / 2;
+    player.y = viewportHeight / 2;
+    player.xVelocity = player.speed = 10;
+    player.yVelocity = 0;
+    player.size = 50;
+    player.health = 3;
+    player.color[0] = 0.0;
+    player.color[1] = 1.0;
+    player.color[2] = 0.0;
+
+    glutInit(&argc, argv);
+    glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB);
+    glutInitWindowPosition(0, 0);
+    glutInitWindowSize(viewportWidth, viewportHeight);
+    glutCreateWindow(TITLE);
+
+    // t = loadImage("bomb.png", &tW, &tH);
+    // img = loadTexture("./bomb.png");
+
+    glutDisplayFunc(render);
+    glutReshapeFunc(onResize);
+    glutMouseFunc(onMouseAction);
+    glutMotionFunc(onMouseMove);
+    glutKeyboardFunc(onKeyPress);
+    glutSpecialFunc(onSpecialKeyPress);
+    glutTimerFunc(FPS, update, 0);
+
+    glClearColor(0.6, 0.6, 0.6, 1.0);
+    glMatrixMode(GL_PROJECTION);
+    gluOrtho2D(0.0, 300.0, 0.0, 300.0);
+    glutMainLoop();
+}
 
 /**
  * @brief Called 60 times per second - used to update the game state.
@@ -104,28 +152,30 @@ void render()
 
     if (state == MENU)
     {
+        // drawImage(t, 10, 10, tW, tH);
+        // createTexture(img);
         glColor3f(0.0, 0.0, 0.0);
         glBegin(GL_QUADS);
-        glVertex2f(width / 2 - 200, height / 2 - 50);
-        glVertex2f(width / 2 + 200, height / 2 - 50);
-        glVertex2f(width / 2 + 200, height / 2 + 50);
-        glVertex2f(width / 2 - 200, height / 2 + 50);
-        glVertex2f(width / 2 - 200, height / 2 + 150 - 50);
-        glVertex2f(width / 2 + 200, height / 2 + 150 - 50);
-        glVertex2f(width / 2 + 200, height / 2 + 150 + 50);
-        glVertex2f(width / 2 - 200, height / 2 + 150 + 50);
+        glVertex2f(viewportWidth / 2 - 200, viewportHeight / 2 - 50);
+        glVertex2f(viewportWidth / 2 + 200, viewportHeight / 2 - 50);
+        glVertex2f(viewportWidth / 2 + 200, viewportHeight / 2 + 50);
+        glVertex2f(viewportWidth / 2 - 200, viewportHeight / 2 + 50);
+        glVertex2f(viewportWidth / 2 - 200, viewportHeight / 2 + 150 - 50);
+        glVertex2f(viewportWidth / 2 + 200, viewportHeight / 2 + 150 - 50);
+        glVertex2f(viewportWidth / 2 + 200, viewportHeight / 2 + 150 + 50);
+        glVertex2f(viewportWidth / 2 - 200, viewportHeight / 2 + 150 + 50);
         glEnd();
 
         // Write the word "Play" inside the first rectangle
         glColor3f(1.0, 1.0, 1.0);
-        glRasterPos2f(width / 2 - 50, height / 2 - 20);
+        glRasterPos2f(viewportWidth / 2 - 50, viewportHeight / 2 - 20);
         char *string = "Play";
         for (int i = 0; i < strlen(string); i++)
             glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, string[i]);
 
         // Write the word "Quit" inside the second rectangle
         glColor3f(1.0, 1.0, 1.0);
-        glRasterPos2f(width / 2 - 50, height / 2 + 150 - 20);
+        glRasterPos2f(viewportWidth / 2 - 50, viewportHeight / 2 + 150 - 20);
         string = "Quit";
         for (int i = 0; i < strlen(string); i++)
             glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, string[i]);
@@ -141,7 +191,7 @@ void render()
     {
         // draw game over in the center of the screen
         glColor3f(1.0, 0.0, 0.0);
-        glRasterPos2f(width / 2 - 100, height / 2);
+        glRasterPos2f(viewportWidth / 2 - 100, viewportHeight / 2);
         char *string = "Game Over";
         for (int i = 0; i < strlen(string); i++)
             glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, string[i]);
@@ -178,11 +228,11 @@ void onMouseAction(GLint button, GLint action, GLint xMouse, GLint yMouse)
     {
         if (button == GLUT_LEFT_BUTTON && action == GLUT_DOWN)
         {
-            if (xMouse >= width / 2 - 200 && xMouse <= width / 2 + 200 && yMouse >= height / 2 - 50 && yMouse <= height / 2 + 50)
+            if (xMouse >= viewportWidth / 2 - 200 && xMouse <= viewportWidth / 2 + 200 && yMouse >= viewportHeight / 2 - 50 && yMouse <= viewportHeight / 2 + 50)
             {
                 state = GAME;
             }
-            else if (xMouse >= width / 2 - 200 && xMouse <= width / 2 + 200 && yMouse >= height / 2 + 150 - 50 && yMouse <= height / 2 + 150 + 50)
+            else if (xMouse >= viewportWidth / 2 - 200 && xMouse <= viewportWidth / 2 + 200 && yMouse >= viewportHeight / 2 + 150 - 50 && yMouse <= viewportHeight / 2 + 150 + 50)
             {
                 exit(0);
             }
@@ -215,7 +265,7 @@ void onKeyPress(unsigned char key, GLint x, GLint y)
         exit(0);
     }
 
-    if (gameState == 0)
+    if (state == MENU)
     {
     }
     else
@@ -289,17 +339,17 @@ void checkCollisions()
         }
     }
 
-    if (player.x > width)
+    if (player.x > viewportWidth)
         player.x = 0;
 
     if (player.x < 0)
-        player.x = width;
+        player.x = viewportWidth;
 
-    if (player.y > height)
+    if (player.y > viewportHeight)
         player.y = 0;
 
     if (player.y < 0)
-        player.y = height;
+        player.y = viewportHeight;
 }
 
 /**
@@ -373,7 +423,7 @@ void drawData()
 }
 
 /**
- * @brief
+ * @brief Generates the apples for the level.
  */
 void generateApples()
 {
@@ -385,26 +435,26 @@ void generateApples()
     // }
 
     // generate apples only in the area of the sceeen the player isnt in
-    if (player.x > width / 2)
+    if (player.x > viewportWidth / 2)
     {
         for (int i = 0; i < appleCount; i++)
         {
-            apples[i].x = rand() % (width / 2);
-            apples[i].y = rand() % (height - 50);
+            apples[i].x = rand() % (viewportWidth / 2);
+            apples[i].y = rand() % (viewportHeight - 50);
         }
     }
     else
     {
         for (int i = 0; i < appleCount; i++)
         {
-            apples[i].x = rand() % (width / 2) + (width / 2);
-            apples[i].y = rand() % (height - 50);
+            apples[i].x = rand() % (viewportWidth / 2) + (viewportWidth / 2);
+            apples[i].y = rand() % (viewportHeight - 50);
         }
     }
 }
 
 /**
- * @brief x
+ * @brief Generates the bombs for the level.
  */
 void generateBombs()
 {
@@ -416,26 +466,26 @@ void generateBombs()
     // }
 
     // generate bombs only in the area of the sceeen the player isnt in
-    if (player.x > width / 2)
+    if (player.x > viewportWidth / 2)
     {
         for (int i = 0; i < bombCount; i++)
         {
-            bombs[i].x = rand() % (width / 2);
-            bombs[i].y = rand() % (height - 50);
+            bombs[i].x = rand() % (viewportWidth / 2);
+            bombs[i].y = rand() % (viewportHeight - 50);
         }
     }
     else
     {
         for (int i = 0; i < bombCount; i++)
         {
-            bombs[i].x = rand() % (width / 2) + (width / 2);
-            bombs[i].y = rand() % (height - 50);
+            bombs[i].x = rand() % (viewportWidth / 2) + (viewportWidth / 2);
+            bombs[i].y = rand() % (viewportHeight - 50);
         }
     }
 }
 
 /**
- * @brief x
+ * @brief Logic that runs at the end of the game, on a loss.
  */
 void endGame()
 {
@@ -443,77 +493,6 @@ void endGame()
     sprintf(logMessage, "Game over! Score: %d", score);
     logConsole("endGame", logMessage);
     exit(0);
-}
-
-/**
- * @brief Logs a message to the console.
- *
- * @param functionName The name of the function that called this function.
- * @param message The message to log.
- */
-void logConsole(char *functionName, char *message)
-{
-    printf("[%s]: %s\n", functionName, message);
-}
-
-/**
- * @brief Draws a given string of text to the screen.
- *
- * @param text The text to draw.
- * @param x The x position of the text.
- * @param y The y position of the text.
- * @param r The red value of the text.
- * @param g The green value of the text.
- * @param b The blue value of the text.
- */
-void drawText(char *text, int x, int y, float r, float g, float b)
-{
-    glColor3f(r, g, b);
-    glRasterPos2f(x, y);
-    for (int i = 0; i < strlen(text); i++)
-        glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, text[i]);
-}
-
-/**
- * @brief Initializes the game.
- */
-void init(int argc, char *argv[])
-{
-    logConsole("init", "Initializing...");
-    srand(time(NULL));
-    setvbuf(stdout, NULL, _IONBF, 0);
-    setvbuf(stderr, NULL, _IONBF, 0);
-
-    generateBombs();
-    generateApples();
-    player.x = width / 2;
-    player.y = height / 2;
-    player.xVelocity = player.speed = 10;
-    player.yVelocity = 0;
-    player.size = 50;
-    player.health = 3;
-    player.color[0] = 0.0;
-    player.color[1] = 1.0;
-    player.color[2] = 0.0;
-
-    glutInit(&argc, argv);
-    glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB);
-    glutInitWindowPosition(0, 0);
-    glutInitWindowSize(width, height);
-    glutCreateWindow(TITLE);
-
-    glutDisplayFunc(render);
-    glutReshapeFunc(onResize);
-    glutMouseFunc(onMouseAction);
-    glutMotionFunc(onMouseMove);
-    glutKeyboardFunc(onKeyPress);
-    glutSpecialFunc(onSpecialKeyPress);
-    glutTimerFunc(FPS, update, 0);
-
-    glClearColor(0.6, 0.6, 0.6, 1.0);
-    glMatrixMode(GL_PROJECTION);
-    gluOrtho2D(0.0, 300.0, 0.0, 300.0);
-    glutMainLoop();
 }
 
 /**
